@@ -3,7 +3,7 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.1
+Version: 0.2
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -13,14 +13,30 @@ License URI: http://opensource.org/licenses/MIT
 class WPUImportFolder
 {
     private $options = array(
-        'name' => 'Import folder',
-        'id' => 'wpu-import-folder',
+        'name' => '',
+        'id' => 'wpuimportfolder',
+    );
+
+    private $extensions = array(
+        'image' => array(
+            'jpg',
+            'jpeg',
+            'png',
+            'bmp',
+            'gif'
+        ) ,
+        'text' => array(
+            'txt',
+            'htm',
+            'html'
+        )
     );
 
     private $messages = array();
 
     function __construct() {
-
+        load_plugin_textdomain($this->options['id'], false, dirname(plugin_basename(__FILE__)) . '/lang/');
+        $this->options['name'] = $this->__('Import folder');
         add_action('init', array(&$this,
             'init'
         ));
@@ -64,14 +80,14 @@ class WPUImportFolder
         echo '<div class="wrap"><div id="icon-tools" class="icon32"></div>';
         echo '<h2>' . $this->options['name'] . '</h2>';
         if ($has_files) {
-            echo '<p>' . (count($files) - 2) . ' files available.</p>';
+            echo '<p>' . sprintf($this->__('%s files available.') , (count($files) - 2)) . '</p>';
             echo '<form action="" method="post">';
             wp_nonce_field('nonce_' . $this->options['id'], $this->nonce_field);
 
             // - Choose a post type
-            echo '<p><label for="import_post_type">Post type</label><br/>';
+            echo '<p><label for="import_post_type">' . $this->__('Post type') . '</label><br/>';
             echo '<select name="import_post_type" id="import_post_type" required>';
-            echo '<option value="" disabled selected style="display:none;">Select a post type</option>';
+            echo '<option value="" disabled selected style="display:none;">' . $this->__('Select a post type') . '</option>';
 
             foreach ($post_types as $id => $post_type) {
                 echo '<option value="' . $id . '">' . $post_type->labels->name . '</option>';
@@ -79,10 +95,10 @@ class WPUImportFolder
             echo '</select>';
             echo '</p>';
 
-            echo '<button type="submit" class="button">Import</button>';
+            echo '<button type="submit" class="button">' . $this->__('Import') . '</button>';
             echo '</form>';
         } else {
-            echo '<p>No files are available.</p>';
+            echo '<p>' . $this->__('No files are available.') . '</p>';
         }
         echo '</div>';
     }
@@ -123,17 +139,13 @@ class WPUImportFolder
 
             $post_created = $this->create_post_from_file($file, $post_type);
             if ($post_created === true) {
-                echo '<pre>';
-                var_dump($file);
-                echo '</pre>';
-                die;
                 $post_count++;
             }
         }
 
         // Display success message
         if ($post_count > 0) {
-            $this->messages[] = $post_count . ' posts have been successfully created';
+            $this->messages[] = sprintf($this->__('%s posts have been successfully created') , $post_count);
         }
     }
 
@@ -169,7 +181,7 @@ class WPUImportFolder
 
         $success_creation = is_numeric($post_id);
 
-        if ($extension == 'jpg') {
+        if (in_array($extension, $this->extensions['image'])) {
 
             // Copy file
             copy($filepath, $new_filepath);
@@ -199,12 +211,17 @@ class WPUImportFolder
             set_post_thumbnail($post_id, $attach_id);
         }
 
-        if ($extension == 'txt') {
+        if (in_array($extension, $this->extensions['text'])) {
+
+            $post_content = file_get_contents($filepath);
+            if ($extension == 'txt') {
+                $post_content = wpautop($post_content);
+            }
 
             // Set post content to file content
             wp_update_post(array(
                 'ID' => $post_id,
-                'post_content' => wpautop(file_get_contents($filepath)) ,
+                'post_content' => $post_content
             ));
         }
 
@@ -237,6 +254,11 @@ class WPUImportFolder
     /* ----------------------------------------------------------
       WordPress tools
     ---------------------------------------------------------- */
+
+    /* Translation */
+    function __($string) {
+        return __($string, $this->options['id']);
+    }
 
     /* Display notices */
     function admin_notices() {
