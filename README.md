@@ -12,7 +12,7 @@ How to install
 How to use
 ---
 
-* Create a new folder in your "uploads/" folder.
+* Create a new folder named "import" in your "uploads/" folder.
 * Add the files you wish to import.
 * Go to the "Import folder" admin page.
 * Choose the destination post type for these files.
