@@ -3,7 +3,7 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.2
+Version: 0.3
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -43,7 +43,8 @@ class WPUImportFolder
     }
 
     function init() {
-
+        global $current_user;
+        $this->transient_msg = $current_user->ID . $this->options['id'];
         $this->nonce_field = 'nonce_' . $this->options['id'] . '_import';
         $this->upload_dir = wp_upload_dir();
         $this->import_dir = $this->upload_dir['basedir'] . '/import/';
@@ -54,7 +55,7 @@ class WPUImportFolder
         ));
 
         // Set post action
-        add_action('admin_menu', array(&$this,
+        add_action('admin_post_' . $this->options['id'], array(&$this,
             'admin_page_postAction'
         ));
 
@@ -67,7 +68,7 @@ class WPUImportFolder
     function admin_menu() {
 
         // Set page
-        add_submenu_page('tools.php', $this->options['name'], $this->options['name'], 'manage_options', $this->options['id'], array(&$this,
+        add_management_page($this->options['name'], $this->options['name'], 'manage_options', $this->options['id'], array(&$this,
             'admin_page'
         ));
     }
@@ -77,11 +78,11 @@ class WPUImportFolder
         $has_files = is_array($files) && count($files) > 2;
         $post_types = get_post_types('', 'objects');
 
-        echo '<div class="wrap"><div id="icon-tools" class="icon32"></div>';
+        echo '<div class="wrap">';
         echo '<h2>' . $this->options['name'] . '</h2>';
         if ($has_files) {
             echo '<p>' . sprintf($this->__('%s files available.') , (count($files) - 2)) . '</p>';
-            echo '<form action="" method="post">';
+            echo '<form action="' . admin_url('admin-post.php') . '" method="post">';
             wp_nonce_field('nonce_' . $this->options['id'], $this->nonce_field);
 
             // - Choose a post type
@@ -95,7 +96,8 @@ class WPUImportFolder
             echo '</select>';
             echo '</p>';
 
-            echo '<button type="submit" class="button">' . $this->__('Import') . '</button>';
+            echo '<input type="hidden" name="action" value="wpuimportfolder">';
+            submit_button($this->__('Import'));
             echo '</form>';
         } else {
             echo '<p>' . $this->__('No files are available.') . '</p>';
@@ -145,8 +147,11 @@ class WPUImportFolder
 
         // Display success message
         if ($post_count > 0) {
-            $this->messages[] = sprintf($this->__('%s posts have been successfully created') , $post_count);
+            $this->set_message(sprintf($this->__('%s posts have been successfully created') , $post_count));
         }
+
+        wp_safe_redirect(wp_get_referer());
+        die();
     }
 
     /* ----------------------------------------------------------
@@ -260,18 +265,27 @@ class WPUImportFolder
         return __($string, $this->options['id']);
     }
 
+    /* Set notices messages */
+    private function set_message($message, $created = false) {
+        $messages = (array)get_transient($this->transient_msg);
+        $group = $created ? 'created' : 'updated';
+        $messages[$group][] = $message;
+        set_transient($this->transient_msg, $messages);
+    }
+
     /* Display notices */
     function admin_notices() {
-        $return = '';
-        if (!empty($this->messages)) {
-            foreach ($this->messages as $message) {
-                $return.= '<div class="updated"><p>' . $message . '</p></div>';
+        $messages = (array)get_transient($this->transient_msg);
+        if (!empty($messages)) {
+            foreach ($messages as $group_id => $group) {
+                foreach ($group as $message) {
+                    echo '<div class="' . $group_id . '"><p>' . $message . '</p></div>';
+                }
             }
         }
 
         // Empty messages
-        $this->messages = array();
-        echo $return;
+        delete_transient($this->transient_msg);
     }
 }
 
