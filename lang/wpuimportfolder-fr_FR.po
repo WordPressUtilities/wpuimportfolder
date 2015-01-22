@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: WPU Import Folder\n"
-"POT-Creation-Date: 2015-01-21 11:41+0100\n"
+"POT-Creation-Date: 2015-01-22 13:22+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Darklg <darklg.blog@gmail.com>\n"
 "Language-Team: \n"
@@ -12,35 +12,49 @@ msgstr ""
 "X-Generator: Poedit 1.7.1\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 "X-Poedit-Basepath: .\n"
-"X-Poedit-KeywordsList: __;_e\n"
+"X-Poedit-KeywordsList: __;_e,_n\n"
 "X-Poedit-SearchPath-0: ../.\n"
 
-#: .././wpuimportfolder.php:39
+#: .././wpuimportfolder.php:44
 msgid "Import folder"
 msgstr "Importer un dossier"
 
-#: .././wpuimportfolder.php:83
+#: .././wpuimportfolder.php:105
+#, php-format
+msgid "%s file available."
+msgstr "%s fichier disponible."
+
+#: .././wpuimportfolder.php:107
 #, php-format
 msgid "%s files available."
 msgstr "%s fichiers disponibles."
 
-#: .././wpuimportfolder.php:88
+#: .././wpuimportfolder.php:113
+msgid "Edit selection"
+msgstr "Modifier la sélection"
+
+#: .././wpuimportfolder.php:139
 msgid "Post type"
 msgstr "Type de post"
 
-#: .././wpuimportfolder.php:90
+#: .././wpuimportfolder.php:141
 msgid "Select a post type"
 msgstr "Sélectionner un type de post"
 
-#: .././wpuimportfolder.php:98
+#: .././wpuimportfolder.php:149
 msgid "Import"
 msgstr "Importer"
 
-#: .././wpuimportfolder.php:101
+#: .././wpuimportfolder.php:152
 msgid "No files are available."
 msgstr "Aucun fichier n'est disponible."
 
-#: .././wpuimportfolder.php:148
+#: .././wpuimportfolder.php:201
+#, php-format
+msgid "%s post have been successfully created"
+msgstr "%s élément a été créé avec succès"
+
+#: .././wpuimportfolder.php:203
 #, php-format
 msgid "%s posts have been successfully created"
 msgstr "%s éléments ont été créés avec succès"

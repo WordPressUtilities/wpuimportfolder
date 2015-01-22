@@ -3,7 +3,7 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.3
+Version: 0.4
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -30,6 +30,11 @@ class WPUImportFolder
             'htm',
             'html'
         )
+    );
+
+    private $unwanted_files = array(
+        '.',
+        '..'
     );
 
     private $messages = array();
@@ -68,22 +73,67 @@ class WPUImportFolder
     function admin_menu() {
 
         // Set page
-        add_management_page($this->options['name'], $this->options['name'], 'manage_options', $this->options['id'], array(&$this,
+        $page = add_management_page($this->options['name'], $this->options['name'], 'manage_options', $this->options['id'], array(&$this,
             'admin_page'
+        ));
+
+        // Set script
+        add_action('admin_footer-' . $page, array(&$this,
+            'admin_page_script'
         ));
     }
 
+    function admin_page_script() {
+?><script>(function() {
+    jQuery('#wpuimport-choose-files').on('click', function(e) {
+        e.preventDefault();
+        jQuery('#wpuimport-folder-list').toggle();
+    });
+}()); </script><?php
+    }
+
     function admin_page() {
-        $files = scandir($this->import_dir);
-        $has_files = is_array($files) && count($files) > 2;
+        $files = $this->get_files_from_import_dir($this->import_dir);
+        $nb_files = count($files);
+        $has_files = is_array($files) && $nb_files > 0;
         $post_types = get_post_types('', 'objects');
 
         echo '<div class="wrap">';
         echo '<h2>' . $this->options['name'] . '</h2>';
         if ($has_files) {
-            echo '<p>' . sprintf($this->__('%s files available.') , (count($files) - 2)) . '</p>';
+
+            $str_files = $this->__('%s file available.');
+            if ($nb_files > 1) {
+                $str_files = $this->__('%s files available.');
+            }
+
+            echo '<p>';
+            echo sprintf($str_files, $nb_files);
+            if ($nb_files > 1) {
+                echo ' <a id="wpuimport-choose-files" href="#" class="hide-if-no-js">' . $this->__('Edit selection') . '</a>';
+            } else {
+                echo ' <small>(' . $files[0] . ')</small>';
+            }
+
+            echo '</p>';
             echo '<form action="' . admin_url('admin-post.php') . '" method="post">';
             wp_nonce_field('nonce_' . $this->options['id'], $this->nonce_field);
+            echo '<input type="hidden" name="action" value="wpuimportfolder">';
+
+            if ($nb_files > 1) {
+                echo '<div id="wpuimport-folder-list" class="hide-if-js">';
+                echo '<ul style="margin:0;max-height:200px;overflow:auto;">';
+
+                foreach ($files as $i => $file) {
+                    if (!in_array($file, $this->unwanted_files)) {
+                        $input = '<input type="checkbox" name="wpuimportfiles[]" value="' . esc_attr($file) . '" checked />';
+                        echo '<li><label>' . $input . ' ' . $file . '</label></li>';
+                    }
+                }
+
+                echo '</ul>';
+                echo '</div>';
+            }
 
             // - Choose a post type
             echo '<p><label for="import_post_type">' . $this->__('Post type') . '</label><br/>';
@@ -96,7 +146,6 @@ class WPUImportFolder
             echo '</select>';
             echo '</p>';
 
-            echo '<input type="hidden" name="action" value="wpuimportfolder">';
             submit_button($this->__('Import'));
             echo '</form>';
         } else {
@@ -106,10 +155,7 @@ class WPUImportFolder
     }
 
     function admin_page_postAction() {
-        $unwanted_files = array(
-            '.',
-            '..'
-        );
+
         $post_types = get_post_types();
 
         // Check nonce
@@ -123,31 +169,41 @@ class WPUImportFolder
         }
         $post_type = $_POST['import_post_type'];
 
-        // Ensure the folder exists
-        if (!is_dir($this->import_dir)) {
-            @mkdir($this->import_dir, 0777);
-            @chmod($this->import_dir, 0777);
+        // Choose files to import
+        $files = $this->get_files_from_import_dir($this->import_dir);
+        $import_files = array();
+        foreach ($_POST['wpuimportfiles'] as $file) {
+            if (in_array($file, $files)) {
+                $import_files[] = $file;
+            }
+        }
+        // Import all files if
+        if (empty($import_files)) {
+            $import_files = $files;
         }
 
-        $files = scandir($this->import_dir);
-
-        $post_count = 0;
+        $files_count = 0;
 
         // For each found file
-        foreach ($files as $file) {
-            if (in_array($file, $unwanted_files)) {
+        foreach ($import_files as $file) {
+            if (in_array($file, $this->unwanted_files)) {
                 continue;
             }
 
             $post_created = $this->create_post_from_file($file, $post_type);
             if ($post_created === true) {
-                $post_count++;
+                $files_count++;
             }
         }
 
         // Display success message
-        if ($post_count > 0) {
-            $this->set_message(sprintf($this->__('%s posts have been successfully created') , $post_count));
+        if ($files_count > 0) {
+            $str_msg = $this->__('%s post have been successfully created');
+            if ($files_count > 1) {
+                $str_msg = $this->__('%s posts have been successfully created');
+            }
+
+            $this->set_message(sprintf($str_msg, $files_count));
         }
 
         wp_safe_redirect(wp_get_referer());
@@ -157,6 +213,26 @@ class WPUImportFolder
     /* ----------------------------------------------------------
       Files tools
     ---------------------------------------------------------- */
+
+    private function get_files_from_import_dir($dir) {
+
+        // Ensure the folder exists
+        defined('FS_CHMOD_DIR') or define('FS_CHMOD_DIR', 0755);
+
+        if (!is_dir($dir)) {
+            @mkdir($dir, FS_CHMOD_DIR);
+            @chmod($dir, FS_CHMOD_DIR);
+        }
+
+        // List the files
+        $files = array();
+        $files_dir = glob($dir . '*');
+        foreach ($files_dir as $file) {
+            $files[] = str_replace($dir, '', $file);
+        }
+
+        return $files;
+    }
 
     /**
      * Create post from a file
