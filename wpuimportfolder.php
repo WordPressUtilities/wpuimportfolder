@@ -3,7 +3,7 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.4
+Version: 0.5
 Author: Darklg
 Author URI: http://darklg.me/
 License: MIT License
@@ -177,21 +177,38 @@ class WPUImportFolder
                 $import_files[] = $file;
             }
         }
-        // Import all files if
+
+        // Import all files if no file selected
         if (empty($import_files)) {
             $import_files = $files;
         }
 
-        $files_count = 0;
+        // Sort by filename
+        asort($import_files);
 
         // For each found file
+        $files_count = 0;
+        $post_id = 0;
+        $last_filename = '';
         foreach ($import_files as $file) {
             if (in_array($file, $this->unwanted_files)) {
                 continue;
             }
 
-            $post_created = $this->create_post_from_file($file, $post_type);
-            if ($post_created === true) {
+            $filename = pathinfo($file, PATHINFO_FILENAME);
+
+            // If two files have the same name
+            if ($last_filename == $filename) {
+
+                // Update the previous post
+                $this->update_post_from_file($file, $post_id);
+                continue;
+            }
+
+            $last_filename = $filename;
+
+            $post_id = $this->create_post_from_file($file, $post_type);
+            if (is_numeric($post_id)) {
                 $files_count++;
             }
         }
@@ -241,17 +258,9 @@ class WPUImportFolder
      */
     private function create_post_from_file($file, $post_type) {
 
-        // Extract path & title
-        $filepath = $this->import_dir . $file;
-        $filetitle = $this->get_title_from_filename($file);
-        $extension = pathinfo($file, PATHINFO_EXTENSION);
-        $filename = pathinfo($file, PATHINFO_FILENAME);
-        $new_filename = substr(time() . '-' . $filename, 0, 32) . '.' . $extension;
-        $new_filepath = $this->upload_dir['path'] . '/' . $new_filename;
-
-        // Move file
+        // Create post
         $insert_post = array(
-            'post_title' => $filetitle,
+            'post_title' => $this->get_title_from_filename($file) ,
             'post_content' => '',
             'post_type' => $post_type,
             'post_status' => 'publish'
@@ -260,7 +269,26 @@ class WPUImportFolder
         // Insert the post into the database
         $post_id = wp_insert_post($insert_post);
 
-        $success_creation = is_numeric($post_id);
+        // Update post info
+        $this->update_post_from_file($file, $post_id);
+
+        return $post_id;
+    }
+
+    /**
+     * Update a post from a file
+     * @param  string   $file     Path of the file
+     * @param  integer  $post_id  ID of the post
+     */
+    private function update_post_from_file($file, $post_id) {
+
+        // Extract file info
+        $filetitle = $this->get_title_from_filename($file);
+        $filepath = $this->import_dir . $file;
+        $extension = pathinfo($file, PATHINFO_EXTENSION);
+        $filename = pathinfo($file, PATHINFO_FILENAME);
+        $new_filename = substr(time() . '-' . $filename, 0, 32) . '.' . $extension;
+        $new_filepath = $this->upload_dir['path'] . '/' . $new_filename;
 
         if (in_array($extension, $this->extensions['image'])) {
 
@@ -308,8 +336,6 @@ class WPUImportFolder
 
         // Delete old file
         @unlink($filepath);
-
-        return $success_creation;
     }
 
     /**
@@ -354,8 +380,10 @@ class WPUImportFolder
         $messages = (array)get_transient($this->transient_msg);
         if (!empty($messages)) {
             foreach ($messages as $group_id => $group) {
-                foreach ($group as $message) {
-                    echo '<div class="' . $group_id . '"><p>' . $message . '</p></div>';
+                if (is_array($group)) {
+                    foreach ($group as $message) {
+                        echo '<div class="' . $group_id . '"><p>' . $message . '</p></div>';
+                    }
                 }
             }
         }
