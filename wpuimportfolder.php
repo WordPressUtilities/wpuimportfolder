@@ -3,9 +3,10 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.5
+Version: 0.6
 Author: Darklg
 Author URI: http://darklg.me/
+Contributor : Juliobox
 License: MIT License
 License URI: http://opensource.org/licenses/MIT
 */
@@ -272,6 +273,8 @@ class WPUImportFolder
         // Update post info
         $this->update_post_from_file($file, $post_id);
 
+        do_action('wpuimportfolder_create_post', $post_id, $file, $post_type);
+
         return $post_id;
     }
 
@@ -287,20 +290,32 @@ class WPUImportFolder
         $filepath = $this->import_dir . $file;
         $extension = pathinfo($file, PATHINFO_EXTENSION);
         $filename = pathinfo($file, PATHINFO_FILENAME);
-        $new_filename = substr(time() . '-' . $filename, 0, 32) . '.' . $extension;
-        $new_filepath = $this->upload_dir['path'] . '/' . $new_filename;
 
         if (in_array($extension, $this->extensions['image'])) {
 
-            // Copy file
-            copy($filepath, $new_filepath);
-
             // Check the type of file. We'll use this as the 'post_mime_type'.
-            $filetype = wp_check_filetype(basename($new_filename) , null);
+            $filetype = wp_check_filetype($filepath);
+            $filesize = filesize($filepath);
+            $file_info = array(
+                'name' => strtolower(remove_accents(basename($filepath))) ,
+                'tmp_name' => $filepath,
+                'type' => $filetype['type'],
+                'size' => $filesize,
+                'error' => UPLOAD_ERR_OK,
+            );
+
+            // "upload" file
+            $file_up = wp_handle_sideload($file_info, array(
+                'test_form' => false
+            ));
+
+            if (isset($file_up['error'])) {
+                return false;
+            }
 
             // Prepare an array of post data for the attachment.
             $attachment = array(
-                'guid' => $this->upload_dir['url'] . '/' . $new_filename,
+                'guid' => $file_up['url'],
                 'post_mime_type' => $filetype['type'],
                 'post_title' => $filetitle,
                 'post_content' => '',
@@ -308,13 +323,13 @@ class WPUImportFolder
             );
 
             // Insert the attachment.
-            $attach_id = wp_insert_attachment($attachment, $new_filepath, $post_id);
+            $attach_id = wp_insert_attachment($attachment, $file_up['file'], $post_id);
 
             // Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
             require_once (ABSPATH . 'wp-admin/includes/image.php');
 
             // Generate the metadata for the attachment, and update the database record.
-            $attach_data = wp_generate_attachment_metadata($attach_id, $new_filepath);
+            $attach_data = wp_generate_attachment_metadata($attach_id, $file_up['file']);
             wp_update_attachment_metadata($attach_id, $attach_data);
 
             set_post_thumbnail($post_id, $attach_id);
@@ -344,9 +359,10 @@ class WPUImportFolder
      * @return string       Generated title
      */
     private function get_title_from_filename($file) {
-        $extension = pathinfo($file, PATHINFO_EXTENSION);
+        $original_filename = $file;
 
         // Remove extension
+        $extension = pathinfo($file, PATHINFO_EXTENSION);
         $file = str_replace('.' . $extension, '', $file);
 
         // Remove unwanted characters
@@ -355,7 +371,12 @@ class WPUImportFolder
             '-',
             '.'
         ) , ' ', $file);
-        return ucfirst($filename);
+
+        $filename = ucfirst($filename);
+
+        $filename = apply_filters('wpuimportfolder_title_filename', $filename, $original_filename, $file);
+
+        return $filename;
     }
 
     /* ----------------------------------------------------------
