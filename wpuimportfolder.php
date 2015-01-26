@@ -3,7 +3,7 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.6
+Version: 0.7
 Author: Darklg
 Author URI: http://darklg.me/
 Contributor : Juliobox
@@ -37,8 +37,8 @@ class WPUImportFolder
         '.',
         '..'
     );
-
     private $messages = array();
+    public $upload_dir;
 
     function __construct() {
         load_plugin_textdomain($this->options['id'], false, dirname(plugin_basename(__FILE__)) . '/lang/');
@@ -170,18 +170,42 @@ class WPUImportFolder
         }
         $post_type = $_POST['import_post_type'];
 
-        // Choose files to import
-        $files = $this->get_files_from_import_dir($this->import_dir);
         $import_files = array();
-        foreach ($_POST['wpuimportfiles'] as $file) {
-            if (in_array($file, $files)) {
+        if (!empty($_POST['wpuimportfiles']) && is_array($_POST['wpuimportfiles'])) {
+            $import_files = $_POST['wpuimportfiles'];
+        }
+
+        $files_count = $this->import_files($import_files, $post_type);
+
+        // Display success message
+        if ($files_count > 0) {
+            $str_msg = $this->__('%s post have been successfully created');
+            if ($files_count > 1) {
+                $str_msg = $this->__('%s posts have been successfully created');
+            }
+
+            $this->set_message(sprintf($str_msg, $files_count));
+        }
+
+        wp_safe_redirect(wp_get_referer());
+        die();
+    }
+
+    public function import_files($files_list, $post_type) {
+
+        $base_files = $this->get_files_from_import_dir($this->import_dir);
+
+        // Choose files to import
+        $import_files = array();
+        foreach ($files_list as $file) {
+            if (in_array($file, $base_files)) {
                 $import_files[] = $file;
             }
         }
 
         // Import all files if no file selected
         if (empty($import_files)) {
-            $import_files = $files;
+            $import_files = $base_files;
         }
 
         // Sort by filename
@@ -191,6 +215,7 @@ class WPUImportFolder
         $files_count = 0;
         $post_id = 0;
         $last_filename = '';
+
         foreach ($import_files as $file) {
             if (in_array($file, $this->unwanted_files)) {
                 continue;
@@ -214,25 +239,14 @@ class WPUImportFolder
             }
         }
 
-        // Display success message
-        if ($files_count > 0) {
-            $str_msg = $this->__('%s post have been successfully created');
-            if ($files_count > 1) {
-                $str_msg = $this->__('%s posts have been successfully created');
-            }
-
-            $this->set_message(sprintf($str_msg, $files_count));
-        }
-
-        wp_safe_redirect(wp_get_referer());
-        die();
+        return $files_count;
     }
 
     /* ----------------------------------------------------------
       Files tools
     ---------------------------------------------------------- */
 
-    private function get_files_from_import_dir($dir) {
+    public function get_files_from_import_dir($dir) {
 
         // Ensure the folder exists
         defined('FS_CHMOD_DIR') or define('FS_CHMOD_DIR', 0755);
@@ -290,6 +304,10 @@ class WPUImportFolder
         $filepath = $this->import_dir . $file;
         $extension = pathinfo($file, PATHINFO_EXTENSION);
         $filename = pathinfo($file, PATHINFO_FILENAME);
+
+        if (!file_exists($filepath)) {
+            return;
+        }
 
         if (in_array($extension, $this->extensions['image'])) {
 
