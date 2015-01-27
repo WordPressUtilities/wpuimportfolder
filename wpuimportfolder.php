@@ -3,7 +3,7 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.7
+Version: 0.8
 Author: Darklg
 Author URI: http://darklg.me/
 Contributor : Juliobox
@@ -53,7 +53,7 @@ class WPUImportFolder
         $this->transient_msg = $current_user->ID . $this->options['id'];
         $this->nonce_field = 'nonce_' . $this->options['id'] . '_import';
         $this->upload_dir = wp_upload_dir();
-        $this->import_dir = $this->upload_dir['basedir'] . '/import/';
+        $this->import_dir = apply_filters('wpuimportfolder_title_filename', $this->upload_dir['basedir'] . '/import/');
 
         // Set menu in settings
         add_action('admin_menu', array(&$this,
@@ -271,7 +271,7 @@ class WPUImportFolder
      * @param  string   $file  Path of the file
      * @return boolean         Success creation
      */
-    private function create_post_from_file($file, $post_type) {
+    public function create_post_from_file($file, $post_type) {
 
         // Create post
         $insert_post = array(
@@ -297,7 +297,7 @@ class WPUImportFolder
      * @param  string   $file     Path of the file
      * @param  integer  $post_id  ID of the post
      */
-    private function update_post_from_file($file, $post_id) {
+    public function update_post_from_file($file, $post_id) {
 
         // Extract file info
         $filetitle = $this->get_title_from_filename($file);
