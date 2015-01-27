@@ -1,6 +1,8 @@
 WPU Import folder
 ===
 
+[![Build Status](https://travis-ci.org/WordPressUtilities/wpuimportfolder.svg?branch=master)](https://travis-ci.org/WordPressUtilities/wpuimportfolder)
+
 WordPress plugin to Import the content of a folder
 
 How to install
