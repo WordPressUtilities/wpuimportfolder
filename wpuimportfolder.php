@@ -3,7 +3,7 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.8
+Version: 0.9
 Author: Darklg
 Author URI: http://darklg.me/
 Contributor : Juliobox
@@ -25,6 +25,9 @@ class WPUImportFolder
             'png',
             'bmp',
             'gif'
+        ) ,
+        'archive' => array(
+            'zip'
         ) ,
         'text' => array(
             'txt',
@@ -257,10 +260,31 @@ class WPUImportFolder
         }
 
         // List the files
+        $files = $this->parse_dir($dir);
+        return $files;
+    }
+
+    public function parse_dir($dir) {
+        $has_archive = false;
+
+        // List the files
         $files = array();
         $files_dir = glob($dir . '*');
         foreach ($files_dir as $file) {
-            $files[] = str_replace($dir, '', $file);
+            $file_info = wp_check_filetype($file);
+            $file_name = str_replace($dir, '', $file);
+
+            // If this is a zip archive, extract it
+            if ($file_info['ext'] == 'zip') {
+                $has_archive = true;
+                $this->extract_archive($dir, $file_name);
+            }
+            $files[] = $file_name;
+        }
+
+        // Refresh the list if an archive was extracted
+        if ($has_archive) {
+            $files = $this->parse_dir($dir);
         }
 
         return $files;
@@ -400,6 +424,18 @@ class WPUImportFolder
     /* ----------------------------------------------------------
       WordPress tools
     ---------------------------------------------------------- */
+
+    function extract_archive($folder, $filename) {
+        require_once (ABSPATH . '/wp-admin/includes/file.php');
+        global $wp_filesystem;
+        WP_Filesystem();
+        $archive = $folder . $filename;
+        $unzipfile = unzip_file($archive, $folder);
+        if ($unzipfile !== false) {
+            @unlink($archive);
+        }
+        return $unzipfile;
+    }
 
     /* Translation */
     function __($string) {
