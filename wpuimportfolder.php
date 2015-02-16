@@ -3,7 +3,7 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.9
+Version: 0.10
 Author: Darklg
 Author URI: http://darklg.me/
 Contributor : Juliobox
@@ -72,6 +72,7 @@ class WPUImportFolder
         add_action('admin_notices', array(&$this,
             'admin_notices'
         ));
+
     }
 
     function admin_menu() {
@@ -265,6 +266,11 @@ class WPUImportFolder
     }
 
     public function parse_dir($dir) {
+
+        add_filter('upload_mimes', array(&$this,
+            'custom_upload_mimes'
+        ));
+
         $has_archive = false;
 
         // List the files
@@ -274,8 +280,12 @@ class WPUImportFolder
             $file_info = wp_check_filetype($file);
             $file_name = str_replace($dir, '', $file);
 
+            if (is_dir($file)) {
+                break;
+            }
+
             // If this is a zip archive, extract it
-            if ($file_info['ext'] == 'zip') {
+            if (in_array($file_info['ext'], $this->extensions['archive'])) {
                 $has_archive = true;
                 $this->extract_archive($dir, $file_name);
             }
@@ -286,6 +296,10 @@ class WPUImportFolder
         if ($has_archive) {
             $files = $this->parse_dir($dir);
         }
+
+        remove_filter('upload_mimes', array(&$this,
+            'custom_upload_mimes'
+        ));
 
         return $files;
     }
@@ -400,7 +414,7 @@ class WPUImportFolder
      * @param  string $file Original file name
      * @return string       Generated title
      */
-    private function get_title_from_filename($file) {
+    public function get_title_from_filename($file) {
         $original_filename = $file;
 
         // Remove extension
@@ -424,6 +438,14 @@ class WPUImportFolder
     /* ----------------------------------------------------------
       WordPress tools
     ---------------------------------------------------------- */
+
+    /* Allow zip upload in MU */
+    function custom_upload_mimes($existing_mimes) {
+
+        $existing_mimes['zip'] = 'application/zip';
+
+        return $existing_mimes;
+    }
 
     function extract_archive($folder, $filename) {
         require_once (ABSPATH . '/wp-admin/includes/file.php');
@@ -471,3 +493,4 @@ class WPUImportFolder
 if (is_admin()) {
     $WPUImportFolder = new WPUImportFolder();
 }
+

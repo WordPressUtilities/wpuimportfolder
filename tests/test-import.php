@@ -74,6 +74,14 @@ class WPUImportFolder_Import extends WP_UnitTestCase
         $this->assertEquals(2, $count);
     }
 
+    function test_import_php_file() {
+        $files = $this->set_import_dir(array(
+            'phpfile.php'
+        ));
+        $count = $this->demo_plugin->import_files($files, 'post');
+        $this->assertEquals(0, $count);
+    }
+
     function test_import_archive() {
         $files = $this->set_import_dir(array(
             'archive.zip'
