@@ -3,7 +3,7 @@
 /*
 Plugin Name: Import Folder
 Description: Import the content of a folder
-Version: 0.10
+Version: 0.10.1
 Author: Darklg
 Author URI: http://darklg.me/
 Contributor : Juliobox
@@ -123,7 +123,7 @@ class WPUImportFolder
             echo '</p>';
             echo '<form action="' . admin_url('admin-post.php') . '" method="post">';
             wp_nonce_field('nonce_' . $this->options['id'], $this->nonce_field);
-            echo '<input type="hidden" name="action" value="wpuimportfolder">';
+            echo '<input type="hidden" name="action" value="' . $this->options['id'].'">';
 
             if ($nb_files > 1) {
                 echo '<div id="wpuimport-folder-list" class="hide-if-js">';
